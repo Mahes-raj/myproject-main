@@ -3,7 +3,7 @@ pipeline {
 
     tools {
         jdk 'jdk21'       // Your configured JDK in Jenkins
-        nodejs 'node24'   // Your configured NodeJS in Jenkins
+       
     }
 
     environment {
