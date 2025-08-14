@@ -1,0 +1,93 @@
+pipeline {
+    agent any
+
+    tools {
+        jdk 'jdk21'       // Your configured JDK in Jenkins
+        nodejs 'node24'   // Your configured NodeJS in Jenkins
+    }
+
+    environment {
+        DOCKER_CREDENTIALS = credentials('docker')  // Jenkins credentials ID for Docker Hub
+        IMAGE_NAME = "mahesraj/bms"
+        IMAGE_TAG  = "latest"
+    }
+
+    stages {
+
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage('Checkout from Git') {
+            steps {
+                git branch: 'main', url: 'https://github.com/Mahes-raj/Book-My-Show.git'
+                sh 'ls -la'
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                sh '''
+                echo "Checking for package.json..."
+                if [ -f package.json ]; then
+                    echo "Installing dependencies..."
+                    rm -rf node_modules package-lock.json
+                    npm install
+                else
+                    echo "❌ Error: package.json not found in repo root!"
+                    exit 1
+                fi
+                '''
+            }
+        }
+
+        stage('Docker Build & Push') {
+            steps {
+                script {
+                    sh '''
+                    echo "Logging in to Docker Hub..."
+                    echo "$DOCKER_CREDENTIALS_PSW" | docker login -u "$DOCKER_CREDENTIALS_USR" --password-stdin
+
+                    echo "Building Docker image..."
+                    docker build --no-cache -t $IMAGE_NAME:$IMAGE_TAG .
+
+                    echo "Pushing Docker image..."
+                    docker push $IMAGE_NAME:$IMAGE_TAG
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy to Container') {
+            steps {
+                sh '''
+                echo "Stopping and removing old container (if exists)..."
+                docker stop bms || true
+                docker rm bms || true
+
+                echo "Running new container on port 3000..."
+                docker run -d --restart=always --name bms -p 3000:3000 $IMAGE_NAME:$IMAGE_TAG
+
+                echo "Deployment complete! Checking container status..."
+                docker ps -a
+
+                echo "Logs from container:"
+                sleep 5
+                docker logs bms
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Deployment successful!"
+        }
+        failure {
+            echo "❌ Deployment failed!"
+        }
+    }
+}
+
