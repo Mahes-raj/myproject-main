@@ -3,7 +3,7 @@ pipeline {
 
     tools {
         jdk 'jdk21'       // Your configured JDK in Jenkins
-       
+       node 'node24'maheswari
     }
 
     environment {
